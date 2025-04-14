@@ -1,3 +1,4 @@
+import os
 import time
 import json
 import threading
@@ -7,7 +8,7 @@ from datetime import datetime, timedelta
 import requests
 import webview
 from bs4 import BeautifulSoup
-from flask import Flask, render_template_string, request, Response
+from flask import Flask, render_template_string, request, Response, send_from_directory
 
 # Create a Flask app
 app = Flask(__name__)
@@ -27,6 +28,7 @@ HTML_TEMPLATE = """
 <html>
 <head>
     <title>Fisch Update Checker</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <style>
         body { 
             font-family: Arial, sans-serif; 
@@ -159,12 +161,12 @@ def check_for_updates():
             response = requests.get('https://fischipedia.org/wiki/Fisch_Wiki',
                                     headers=headers,
                                     timeout=10)
-            
+
             if response.status_code == 429:
                 # Get retry-after header or use exponential backoff
                 delay = int(response.headers.get('Retry-After', initial_delay * (2 ** attempt)))
                 next_retry = datetime.now().replace(microsecond=0) + timedelta(seconds=delay)
-                
+
                 if attempt == max_retries - 1:
                     return f"""
                         <div style='background-color: #fff0f0; padding: 15px; border-radius: 4px; margin-bottom: 15px;'>
@@ -173,10 +175,10 @@ def check_for_updates():
                             Please try again at {next_retry.strftime('%I:%M:%S %p')}.
                         </div>
                     """
-                
+
                 time.sleep(delay)
                 continue
-                
+
             response.raise_for_status()
             soup = BeautifulSoup(response.text, 'html.parser')
 
@@ -217,17 +219,17 @@ def check_for_updates():
                             if timestamp > 1000000000000:  # If timestamp is in milliseconds (future date)
                                 event_time = datetime.fromtimestamp(timestamp/1000)
                                 time_str = event_time.strftime("%B %d, %Y at %I:%M %p")
-                                
+
                                 # Determine if event is active or inactive
                                 is_active = "Ends" in status_text
                                 bg_color = "#e8ffe8" if is_active else "#ffe8e8"  # Green for active, red for upcoming
-                                
+
                                 countdown_text = f"{status_text} {time_str}"
-                        
+
                         # Add active class only to green (active) events
                         active_class = ' active' if "Ends" in status_text else ''
                         title_attr = ' title="Click to launch Fisch"' if "Ends" in status_text else ''
-                        
+
                         update_html += f"""
                             <div class="event-card{active_class}" style='background-color: {bg_color};'{title_attr}>
                                 <strong>{title}</strong><br>
@@ -270,10 +272,26 @@ def home():
     update_info = check_for_updates()
     return render_template_string(HTML_TEMPLATE, update_info=update_info)
 
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory('static', 'favicon.ico', mimetype='image/vnd.microsoft.icon')
+
 @app.route('/launch-game')
 def launch_game():
     game_url = "roblox://placeId=16732694052"
     webbrowser.open(game_url)
+
+    # Close the app after launching the game
+    if webview.windows:
+        def graceful_shutdown():
+            # Destroy webview window first
+            webview.windows[0].destroy()
+            # Then exit the process
+            time.sleep(0.5)
+            os._exit(0)
+            
+        threading.Thread(target=graceful_shutdown).start()
+
     return "Launching game..."
 
 @app.route('/refresh-updates')
@@ -338,7 +356,7 @@ def run_flask():
 def create_window():
     # Create a webview window
     webview.create_window('Fisch Update Checker', 'http://localhost:5000', width=800, height=710)
- , icon=icon_path   webview.start()
+    webview.start()
 
 if __name__ == "__main__":
     # Test Discord connection before starting the app
