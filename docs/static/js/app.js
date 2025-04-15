@@ -116,5 +116,25 @@
         // Initial update
         updateCountdowns();
 
-        // Add handlers when page loads
-        document.addEventListener('DOMContentLoaded', addEventCardHandlers);
+        async function refreshUpdates() {
+            try {
+                const response = await fetch('data/updates.json');
+                const data = await response.json();
+                updateContent(data);
+            } catch (error) {
+                console.error('Error fetching updates:', error);
+            }
+        }
+        
+        function updateContent(data) {
+            const updateInfo = document.querySelector('.update-info');
+            updateInfo.innerHTML = `
+                <div style='background-color: #f0f8ff; padding: 15px; border-radius: 4px; margin-bottom: 15px;'>
+                    <strong>Last Update:</strong><br>
+                    ${data.lastUpdate}
+                </div>
+            `;
+        }
+        
+        // Initial load
+        document.addEventListener('DOMContentLoaded', refreshUpdates);

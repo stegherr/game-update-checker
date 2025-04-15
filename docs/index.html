@@ -4,19 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fisch Update Checker</title>
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
-    <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="icon" type="image/x-icon" href="static/favicon.ico">
+    <link rel="stylesheet" href="static/css/styles.css">
 </head>
 <body>
     <main class="container">
         <h1>Fisch Update Checker</h1>
         <section class="update-info" aria-live="polite">
-            {{ update_info|safe }}
+            Loading updates...
         </section>
         <div class="button-container">
             <button onclick="refreshUpdates()" class="refresh-button">Check for Updates</button>
         </div>
     </main>
-    <script src="/static/js/app.js"></script>
+    <script src="static/js/app.js"></script>
 </body>
 </html>
