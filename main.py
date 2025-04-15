@@ -142,6 +142,79 @@ HTML_TEMPLATE = """
             });
         }
 
+        function formatDateTime(timestamp) {
+            const date = new Date(timestamp);
+            const options = { 
+                weekday: 'long',
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric',
+                hour: '2-digit', 
+                minute: '2-digit'
+            };
+            return date.toLocaleDateString(undefined, options);
+        }
+
+        function updateCountdowns() {
+            document.querySelectorAll('.event-card').forEach(card => {
+                const type = card.dataset.type;
+                const timestamp = parseInt(card.dataset.timestamp);
+                const countdownText = card.querySelector('.countdown-text');
+                const dateText = card.querySelector('.date-text');
+                
+                if (type === 'recurring') {
+                    const duration = parseInt(card.dataset.duration);
+                    const period = parseInt(card.dataset.period);
+                    const offset = parseInt(card.dataset.offset);
+                    const showSeconds = card.dataset.showSeconds === 'true';
+                    
+                    // Calculate next occurrence
+                    const now = Math.floor(Date.now() / 1000);
+                    const cyclePosition = (now + offset) % period;
+                    const timeUntilNext = period - cyclePosition;
+                    const nextOccurrence = new Date((now + timeUntilNext) * 1000);
+                    
+                    // Format the countdown
+                    const hours = Math.floor(timeUntilNext / 3600);
+                    const minutes = Math.floor((timeUntilNext % 3600) / 60);
+                    const seconds = timeUntilNext % 60;
+                    
+                    const timeStr = showSeconds ? 
+                        `${hours}h ${minutes}m ${seconds}s` :
+                        `${hours}h ${minutes}m`;
+                        
+                    countdownText.textContent = `Next in: ${timeStr}`;
+                    dateText.textContent = `Next occurrence: ${formatDateTime(nextOccurrence)}`;
+                    
+                } else if (type === 'onetime') {
+                    const eventTime = new Date(timestamp);
+                    const now = new Date();
+                    const diff = eventTime - now;
+                    
+                    if (diff > 0) {
+                        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                        
+                        let timeStr = '';
+                        if (days > 0) timeStr += `${days}d `;
+                        timeStr += `${hours}h ${minutes}m ${seconds}s`;
+                        
+                        const status = card.querySelector('.countdown-text').textContent.includes('Ends') ? 'Ends' : 'Starts';
+                        countdownText.textContent = `${status} in: ${timeStr}`;
+                        dateText.textContent = `Event ${status.toLowerCase()} on: ${formatDateTime(eventTime)}`;
+                    }
+                }
+            });
+        }
+
+        // Update countdowns every second
+        setInterval(updateCountdowns, 1000);
+        
+        // Initial update
+        updateCountdowns();
+
         // Add handlers when page loads
         document.addEventListener('DOMContentLoaded', addEventCardHandlers);
     </script>
@@ -182,65 +255,83 @@ def check_for_updates():
             response.raise_for_status()
             soup = BeautifulSoup(response.text, 'html.parser')
 
-            # Find the Upcoming Content & Events section
-            events_section = soup.find('div', id='Current_Events')
-            if events_section:
-                # Get all countdown containers in this section
-                events_containers = events_section.find_next('div').find_all('div', class_='countdown-container')
+            # Find both Current Events and Recurring Events sections
+            events_sections = [
+                ('Upcoming Content & Events', soup.find('div', id='Current_Events')),
+                ('Recurring Events', soup.find('div', id='Recurring_Events'))
+            ]
 
-                update_html = "<h2>Upcoming Content & Events</h2>"
-                for container in events_containers:
-                    # Get event title
-                    header = container.find('div', class_='countdown-header')
-                    # Get countdown info
-                    countdown_div = container.find('div', class_='countdown')
-                    # Get event description (if exists)
-                    description = container.find('small')
+            update_html = ""
+            for section_title, section in events_sections:
+                if section:
+                    # Get all countdown containers in this section
+                    events_containers = section.find_next('div').find_all('div', class_='countdown-container')
+                    
+                    if events_containers:
+                        update_html += f"<h2>{section_title}</h2>"
+                        
+                        for container in events_containers:
+                            # Get event title
+                            header = container.find('div', class_='countdown-header')
+                            # Get countdown info
+                            countdown_div = container.find('div', class_='countdown')
+                            # Get event description
+                            description = container.find('small')
+                            
+                            if header and countdown_div:
+                                title = header.get_text().strip()
+                                
+                                # Handle both recurring and one-time events
+                                if 'data-type' in countdown_div.attrs and countdown_div['data-type'] == 'recurring':
+                                    # Recurring event
+                                    timestamp = int(countdown_div.get('data-timestamp', 0))
+                                    duration = int(countdown_div.get('data-duration', 0))
+                                    period = int(countdown_div.get('data-period', 0))
+                                    offset = int(countdown_div.get('data-period-offset', 0))
+                                    show_seconds = countdown_div.get('data-show-seconds', 'false') == 'true'
+                                    
+                                    bg_color = "#fff0e8"  # Orange-ish for recurring events
+                                    countdown_text = f"Recurring event (every {period//3600} hours)"
+                                    
+                                else:
+                                    # One-time event
+                                    timestamp = int(countdown_div.get('data-timestamp', 0))
+                                    
+                                    # Find if it's starting or ending
+                                    prev_text = countdown_div.previous_sibling
+                                    status_text = prev_text.strip() if prev_text else ""
+                                    
+                                    if timestamp > 1000000000000:  # If timestamp is in milliseconds
+                                        event_time = datetime.fromtimestamp(timestamp/1000)
+                                        time_str = event_time.strftime("%B %d, %Y at %I:%M %p")
+                                        
+                                        is_active = "Ends" in status_text
+                                        bg_color = "#e8ffe8" if is_active else "#ffe8e8"
+                                        countdown_text = f"{status_text} {time_str}"
+                                    else:
+                                        bg_color = "#f0f8ff"
+                                        countdown_text = "Time not available"
 
-                    if header:
-                        title = header.get_text().strip()
-                        timestamp = int(countdown_div.get('data-timestamp', 0)) if countdown_div else 0
-                        desc = description.get_text().strip() if description else ""
+                                desc = description.get_text().strip() if description else ""
+                                active_class = ' active' if bg_color == "#e8ffe8" else ''
+                                title_attr = ' title="Click to launch Fisch"' if bg_color == "#e8ffe8" else ''
 
-                        # Get the text before the countdown to determine if it's "Ends in" or "Starts in"
-                        countdown_text = "Time not available"
-                        status_text = ""
-                        bg_color = "#f0f8ff"  # Default background color
+                                update_html += f"""
+                                    <div class="event-card{active_class}" style='background-color: {bg_color};'{title_attr}
+                                        data-timestamp="{timestamp}"
+                                        data-type="{'recurring' if 'data-type' in countdown_div.attrs else 'onetime'}"
+                                        {f'data-duration="{duration}"' if 'data-type' in countdown_div.attrs else ''}
+                                        {f'data-period="{period}"' if 'data-type' in countdown_div.attrs else ''}
+                                        {f'data-offset="{offset}"' if 'data-type' in countdown_div.attrs else ''}
+                                        {f'data-show-seconds="{str(show_seconds).lower()}"' if 'data-type' in countdown_div.attrs else ''}>
+                                        <strong>{title}</strong><br>
+                                        <span class="countdown-text" style='color: #666;'>{countdown_text}</span>
+                                        <br><span class="date-text" style='color: #888; font-size: 0.9em;'></span>
+                                        {f"<br><small>{desc}</small>" if desc else ""}
+                                    </div>
+                                """
 
-                        if countdown_div:
-                            # Find the text node before the countdown div
-                            prev_text = countdown_div.previous_sibling
-                            if prev_text:
-                                status_text = prev_text.strip()
-                                if status_text.endswith('in:'):
-                                    status_text = status_text[:-3] + 'on'
-
-                            # Convert timestamp to readable format
-                            if timestamp > 1000000000000:  # If timestamp is in milliseconds (future date)
-                                event_time = datetime.fromtimestamp(timestamp/1000)
-                                time_str = event_time.strftime("%B %d, %Y at %I:%M %p")
-
-                                # Determine if event is active or inactive
-                                is_active = "Ends" in status_text
-                                bg_color = "#e8ffe8" if is_active else "#ffe8e8"  # Green for active, red for upcoming
-
-                                countdown_text = f"{status_text} {time_str}"
-
-                        # Add active class only to green (active) events
-                        active_class = ' active' if "Ends" in status_text else ''
-                        title_attr = ' title="Click to launch Fisch"' if "Ends" in status_text else ''
-
-                        update_html += f"""
-                            <div class="event-card{active_class}" style='background-color: {bg_color};'{title_attr}>
-                                <strong>{title}</strong><br>
-                                <span style='color: #666;'>{countdown_text}</span>
-                                {f"<br><small>{desc}</small>" if desc else ""}
-                            </div>
-                        """
-
-                return update_html
-
-            return "<div>No upcoming events found. Check the website for more information.</div>"
+            return update_html if update_html else "<div>No events found. Check the website for more information.</div>"
         except requests.RequestException as e:
             return f"Error checking for updates: Connection error - {str(e)}"
         except (AttributeError, ValueError) as e:
