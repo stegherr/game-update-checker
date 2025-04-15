@@ -143,27 +143,6 @@ def check_for_updates():
         except (AttributeError, ValueError) as e:
             return f"Error checking for updates: Failed to parse update information - {str(e)}"
 
-def send_to_discord(message):
-    """Send a message to Discord using the webhook"""
-    try:
-        payload = {
-            "content": message,
-            "username": "Fisch Update Checker"
-        }
-        response = requests.post(DISCORD_WEBHOOK_URL, json=payload, timeout=10)
-        response.raise_for_status()
-        return True
-    except (requests.RequestException, requests.Timeout) as e:
-        print(f"Error sending to Discord: {e}")
-        return False
-
-# Test the Discord connection on startup
-def test_discord_connection():
-    if send_to_discord("🎮 Fisch Update Checker is now online and monitoring for updates!"):
-        print("Successfully connected to Discord!")
-    else:
-        print("Failed to connect to Discord. Please check your webhook URL.")
-
 @app.route('/')
 def home():
     update_info = check_for_updates()
