@@ -1,3 +1,4 @@
+"""Update Service Module"""
 import time
 from datetime import datetime, timedelta
 import requests
@@ -5,8 +6,10 @@ from bs4 import BeautifulSoup
 from app.config import Config
 
 class UpdateService:
+    """Service to check for updates on the wiki page."""
     @staticmethod
     def check_for_updates():
+        """Check for updates on the wiki page."""
         max_retries = 3
         initial_delay = 1
 
