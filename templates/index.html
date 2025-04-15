@@ -1,20 +1,22 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fisch Update Checker</title>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="stylesheet" href="/static/css/styles.css">
 </head>
 <body>
-    <div class="container">
+    <main class="container">
         <h1>Fisch Update Checker</h1>
-        <div class="update-info">
+        <section class="update-info" aria-live="polite">
             {{ update_info|safe }}
-        </div>
+        </section>
         <div class="button-container">
-            <a href="javascript:void(0)" onclick="refreshUpdates()" class="refresh-button">Check for Updates</a>
+            <button onclick="refreshUpdates()" class="refresh-button">Check for Updates</button>
         </div>
-    </div>
+    </main>
     <script src="/static/js/app.js"></script>
 </body>
 </html>
