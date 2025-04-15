@@ -9,13 +9,13 @@ import requests
 import webview
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
-from flask import Flask, render_template_string, request, Response, send_from_directory
+from flask import Flask, render_template, request, Response, send_from_directory
 
 # Load environment variables from .env file
 load_dotenv()
 
 # Create a Flask app
-app = Flask(__name__)
+app = Flask(__name__, template_folder='templates')
 
 # Ensure templates are reloaded on every request
 app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -27,206 +27,6 @@ if not DISCORD_WEBHOOK_URL:
 
 # Store for SSE clients
 clients = []
-
-# Define the HTML template
-HTML_TEMPLATE = """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Fisch Update Checker</title>
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            margin: 20px;
-            background-color: #f5f5f5;
-        }
-        h1 { 
-            color: #333;
-            border-bottom: 2px solid #ddd;
-            padding-bottom: 10px;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .update-info {
-            margin: 20px 0;
-            padding: 15px;
-            background: #f0f8ff;
-            border-radius: 4px;
-        }
-        .button-container {
-            margin-top: 20px;
-            display: flex;
-            gap: 10px;
-        }
-        .refresh-button {
-            display: inline-block;
-            padding: 10px 20px;
-            background-color: #007bff;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-            margin-top: 15px;
-        }
-        .refresh-button:hover {
-            background-color: #0056b3;
-        }
-        .event-card {
-            padding: 15px;
-            border-radius: 4px;
-            margin-bottom: 15px;
-        }
-        .event-card.active {
-            cursor: pointer;
-            transition: transform 0.2s ease-in-out;
-        }
-        .event-card.active:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Fisch Update Checker</h1>
-        <div class="update-info">
-            {{ update_info|safe }}
-        </div>
-        <div class="button-container">
-            <a href="javascript:void(0)" onclick="refreshUpdates()" class="refresh-button">Check for Updates</a>
-        </div>
-    </div>
-    <script>
-        // Set up SSE connection
-        const eventSource = new EventSource('/events');
-        
-        eventSource.onmessage = function(event) {
-            const data = JSON.parse(event.data);
-            if (data.type === 'webhook') {
-                updateContent(data.content);
-            }
-        };
-
-        eventSource.onerror = function(error) {
-            console.error("EventSource failed:", error);
-            eventSource.close();
-            // Try to reconnect after 5 seconds
-            setTimeout(() => {
-                window.location.reload();
-            }, 5000);
-        };
-
-        function updateContent(content) {
-            document.querySelector('.update-info').innerHTML = content;
-            // Add click handlers to event cards after content update
-            addEventCardHandlers();
-        }
-
-        function refreshUpdates() {
-            fetch('/refresh-updates')
-                .then(response => response.text())
-                .then(data => {
-                    updateContent(data);
-                });
-        }
-
-        function launchGame() {
-            fetch('/launch-game')
-                .then(response => response.text())
-                .then(data => console.log(data));
-        }
-
-        function addEventCardHandlers() {
-            document.querySelectorAll('.event-card.active').forEach(card => {
-                card.addEventListener('click', launchGame);
-            });
-        }
-
-        function formatDateTime(timestamp) {
-            const date = new Date(timestamp);
-            const options = { 
-                weekday: 'long',
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric',
-                hour: '2-digit', 
-                minute: '2-digit'
-            };
-            return date.toLocaleDateString(undefined, options);
-        }
-
-        function updateCountdowns() {
-            document.querySelectorAll('.event-card').forEach(card => {
-                const type = card.dataset.type;
-                const timestamp = parseInt(card.dataset.timestamp);
-                const countdownText = card.querySelector('.countdown-text');
-                const dateText = card.querySelector('.date-text');
-                
-                if (type === 'recurring') {
-                    const duration = parseInt(card.dataset.duration);
-                    const period = parseInt(card.dataset.period);
-                    const offset = parseInt(card.dataset.offset);
-                    const showSeconds = card.dataset.showSeconds === 'true';
-                    
-                    // Calculate next occurrence
-                    const now = Math.floor(Date.now() / 1000);
-                    const cyclePosition = (now + offset) % period;
-                    const timeUntilNext = period - cyclePosition;
-                    const nextOccurrence = new Date((now + timeUntilNext) * 1000);
-                    
-                    // Format the countdown
-                    const hours = Math.floor(timeUntilNext / 3600);
-                    const minutes = Math.floor((timeUntilNext % 3600) / 60);
-                    const seconds = timeUntilNext % 60;
-                    
-                    const timeStr = showSeconds ? 
-                        `${hours}h ${minutes}m ${seconds}s` :
-                        `${hours}h ${minutes}m`;
-                        
-                    countdownText.textContent = `Next in: ${timeStr}`;
-                    dateText.textContent = `Next occurrence: ${formatDateTime(nextOccurrence)}`;
-                    
-                } else if (type === 'onetime') {
-                    const eventTime = new Date(timestamp);
-                    const now = new Date();
-                    const diff = eventTime - now;
-                    
-                    if (diff > 0) {
-                        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-                        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-                        
-                        let timeStr = '';
-                        if (days > 0) timeStr += `${days}d `;
-                        timeStr += `${hours}h ${minutes}m ${seconds}s`;
-                        
-                        const status = card.querySelector('.countdown-text').textContent.includes('Ends') ? 'Ends' : 'Starts';
-                        countdownText.textContent = `${status} in: ${timeStr}`;
-                        dateText.textContent = `Event ${status.toLowerCase()} on: ${formatDateTime(eventTime)}`;
-                    }
-                }
-            });
-        }
-
-        // Update countdowns every second
-        setInterval(updateCountdowns, 1000);
-        
-        // Initial update
-        updateCountdowns();
-
-        // Add handlers when page loads
-        document.addEventListener('DOMContentLoaded', addEventCardHandlers);
-    </script>
-</body>
-</html>
-"""
 
 def check_for_updates():
     max_retries = 3
@@ -367,7 +167,7 @@ def test_discord_connection():
 @app.route('/')
 def home():
     update_info = check_for_updates()
-    return render_template_string(HTML_TEMPLATE, update_info=update_info)
+    return render_template('index.html', update_info=update_info)
 
 @app.route('/favicon.ico')
 def favicon():
