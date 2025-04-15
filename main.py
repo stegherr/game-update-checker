@@ -8,7 +8,11 @@ from datetime import datetime, timedelta
 import requests
 import webview
 from bs4 import BeautifulSoup
+from dotenv import load_dotenv
 from flask import Flask, render_template_string, request, Response, send_from_directory
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Create a Flask app
 app = Flask(__name__)
@@ -17,7 +21,9 @@ app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 
 # Discord webhook configuration
-DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1347981240523030588/cSSnxEtmbOeeXDjmdKY1x9-YcM_6ICdHRJkXzjWpt3hLraQsxE0GHSAdQJjXLYueOu4-"
+DISCORD_WEBHOOK_URL = os.getenv('DISCORD_WEBHOOK_URL')
+if not DISCORD_WEBHOOK_URL:
+    print("Warning: DISCORD_WEBHOOK_URL not found in .env file")
 
 # Store for SSE clients
 clients = []
@@ -229,9 +235,9 @@ def check_for_updates():
     for attempt in range(max_retries):
         try:
             headers = {
-                'User-Agent': 'FischUpdateChecker/0.1 (contact@youremail.com)'
+                'User-Agent': os.getenv('USER_AGENT')
             }
-            response = requests.get('https://fischipedia.org/wiki/Fisch_Wiki',
+            response = requests.get(os.getenv('WIKI_PAGE_URL'),
                                     headers=headers,
                                     timeout=10)
 

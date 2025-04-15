@@ -8,6 +8,7 @@ flask = "*"
 pywebview = "*"
 requests = "*"
 beautifulsoup4 = "*"
+python-dotenv = "*"
 
 [dev-packages]
 
