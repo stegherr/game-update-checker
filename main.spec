@@ -1,12 +1,20 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('static', 'static')],  # Include static folder
-    hiddenimports=[],
+    datas=[
+        ('static', 'static'),           # Include static folder
+        ('templates', 'templates'),      # Include templates folder
+        ('app', 'app')                  # Include app package
+    ],
+    hiddenimports=[
+        'flask',
+        'webview',
+        'app.services.update_service',
+        'app.services.event_service'
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
