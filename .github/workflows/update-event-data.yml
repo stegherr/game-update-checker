@@ -12,10 +12,6 @@ jobs:
     permissions:
       contents: write       # Needed for pushing changes
     
-    env:
-      USER_AGENT: ${{ secrets.USER_AGENT }}
-      WIKI_PAGE_URL: ${{ secrets.WIKI_PAGE_URL }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
