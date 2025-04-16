@@ -1,8 +1,8 @@
 name: Update Event Data
 
 on:
-  schedule:
-    - cron: '*/30 * * * *'  # Run every 30 minutes
+#  schedule:
+#    - cron: '*/30 * * * *'  # Run every 30 minutes
   workflow_dispatch:         # Allow manual triggering
 
 jobs:
