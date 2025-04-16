@@ -1,8 +1,8 @@
 name: Update Event Data
 
 on:
-  schedule:
-    - cron: '*/30 * * * *'  # Run every 30 minutes
+#  schedule:
+#    - cron: '*/30 * * * *'  # Run every 30 minutes
   workflow_dispatch:         # Allow manual triggering
 
 jobs:
@@ -12,10 +12,6 @@ jobs:
     permissions:
       contents: write       # Needed for pushing changes
     
-    env:
-      USER_AGENT: ${{ secrets.USER_AGENT }}
-      WIKI_PAGE_URL: ${{ secrets.WIKI_PAGE_URL }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
